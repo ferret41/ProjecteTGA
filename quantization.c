@@ -161,7 +161,7 @@ int main(int c, char *v[])
     
     //read:
     bmpInfoHeader infoHeader;
-    unsigned char *im= LoadBMP("subaru.bmp", &infoHeader);
+    unsigned char *im= LoadBMP(v[1], &infoHeader);
     
     //calcular variables globals:
     size_row = ((infoHeader.width*3 + 3) / 4) * 4;
