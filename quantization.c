@@ -4,7 +4,7 @@
 #include "bmp.h"
 
 typedef struct Color {
-  unsigned char r, g, b;
+  unsigned int r, g, b;
 } Color;
 
 int square(int value) {
@@ -71,7 +71,7 @@ DataFrame k_means(const DataFrame& data, size_t k, size_t number_of_iterations) 
 
 //http://www.goldsborough.me/c++/python/cuda/2017/09/10/20-32-46-exploring_k-means_in_python,_c++_and_cuda/
 
-int size, width, height, size_row;
+int size, width, height, size_row, ncolors, N_iterations;
 
 int getIndexColor(unsigned char *im, int index) {
   
@@ -80,8 +80,22 @@ int getIndexColor(unsigned char *im, int index) {
    return i * size_row + j;
 }
 
-void execute_k_means(Color means[], int assigns[], unsigned char *im, int ncolors, int N_iterations) {
+void display_means(Color means[]) {
+    int i;
+    for (i = 0; i < ncolors; ++i) {
+        fprintf(stderr, "mean %d:  ", i);
+        fprintf(stderr, "r: %d, ", means[i].r);
+        fprintf(stderr, "g: %d, ", means[i].g);
+        fprintf(stderr, "b: %d\n", means[i].b);
+        
+    }
+    fprintf(stderr, "\n");
+}
+
+void execute_k_means(Color means[], int assigns[], unsigned char *im) {
   int it;
+  Color *new_means = malloc(ncolors*sizeof(Color));
+  int *counts = malloc (sizeof (int) * ncolors);
   for (it = 0; it < N_iterations; ++it) {
     int i;
     for (i = 0; i < size; ++i) {
@@ -102,9 +116,9 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im, int ncolor
     
     
     // Sum up and count points for each cluster.
-    Color new_means[ncolors];
-    int *counts = malloc (sizeof (int) * ncolors);
+    //set count to 0
     memset (counts, 0, sizeof (int) * ncolors);
+    memset (new_means, 0, sizeof (Color) * ncolors);
     for (i = 0; i < size; ++i) {
       int imeans = assigns[i];
       int index = getIndexColor(im, i);
@@ -113,11 +127,19 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im, int ncolor
       new_means[imeans].b += im[index];
       counts[imeans] += 1;
     }
+    
+    // Divide sums by counts to get new centroids.
+    for (i = 0; i < ncolors; ++i) {
+      // Turn 0/0 into 0/1 to avoid zero division.
+      if (counts[i] == 0) counts[i] = 1;
+      means[i].r = new_means[i].r / counts[i];
+      means[i].g = new_means[i].g / counts[i];
+      means[i].b = new_means[i].b / counts[i];
+    }
   }
 }
 
-void init_means(Color means[], int ncolors, unsigned char *im) {
-    srand(time(NULL));
+void init_means(Color means[], unsigned char *im) {
     int r;
     int i;
     for (i = 0; i < ncolors; ++i) {
@@ -129,39 +151,38 @@ void init_means(Color means[], int ncolors, unsigned char *im) {
     }
 }
 
-void assign_colors(Color means[], unsigned char *im, int ncolors) {
+void assign_colors(Color means[], int assigns[], unsigned char *im) {
   int i;
   for (i = 0; i < size; ++i) {
-    int j;
     int index = getIndexColor(im, i);
-    int dist_min = -1;
-    int dist_act, assign;
-    for (j = 0; j < ncolors; ++j) {
-        dist_act = square(im[index+2] - means[j].r) + square(im[index+1] - means[j].g) + square(im[index] - means[j].b);
-        if (dist_min == -1 || dist_act < dist_min) {
-            dist_min = dist_act;
-            assign = j;  
-        }
-    }
-    im[index]=means[assign].b;
-    im[index + 1]=means[assign].g;
-    im[index + 2]=means[assign].r;  
+    im[index]=means[assigns[i]].b;
+    im[index + 1]=means[assigns[i]].g;
+    im[index + 2]=means[assigns[i]].r;  
   }
+}
+
+
+
+void display_assigns(int assigns[]) {
+    int i;
+    for (i = 0; i < size; ++i) {
+        fprintf(stderr, "%d:  %d\n", i, assigns[i]);
+    }
 }
 
 int main(int c, char *v[])
 {
-	  int ncolors;
-	  if (c < 2 || c > 3) {
-		  fprintf(stderr, "usage: %s ppm_file n_colors\n", v[0]);
+	  if (c < 4 || c > 5) {
+		  fprintf(stderr, "usage: %s ppm_file n_iterations seed n_colors\n", v[0]);
 		  return 0;
 	  }
-	  else if (c == 2) ncolors = 16;
-	  else if (c == 3) ncolors = atoi(v[2]) ? : 16; /* GCC extension */
+	  else if (c == 4) ncolors = 16;
+	  else if (c == 5) ncolors = atoi(v[4]) ? : 16; /* GCC extension */
     
+    N_iterations = atoi(v[2]);
     //read:
     bmpInfoHeader infoHeader;
-    unsigned char *im= LoadBMP("subaru.bmp", &infoHeader);
+    unsigned char *im= LoadBMP(v[1], &infoHeader);
     
     //calcular variables globals:
     size_row = ((infoHeader.width*3 + 3) / 4) * 4;
@@ -171,16 +192,20 @@ int main(int c, char *v[])
     
     //inicialitzar means:
     Color *means = malloc(ncolors*sizeof(Color));
-    init_means(means, ncolors, im);
+    srand(atoi(v[3])); //init seed
+    init_means(means, im);
+    
+    display_means(means);
     
     //executem k means:
     int *assigns = malloc(size*sizeof(int)); //vector d'assignacions (cada
                                              //pixel a un i_mean)
-    execute_k_means(means, assigns, im, ncolors, 10);
-
+    execute_k_means(means, assigns, im);
     //assignem colors:
-    assign_colors(means, im, ncolors);
+    assign_colors(means, assigns, im);
     
+    display_means(means);
+    //display_assigns(assigns);
     
     //convertir blanc i negre 1 for:
     /*for (i = 0; i < size; ++i) {
