@@ -1,4 +1,5 @@
 #include <time.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "bmp.h"
 
@@ -158,18 +159,14 @@ int main(int c, char *v[])
 	  else if (c == 2) ncolors = 16;
 	  else if (c == 3) ncolors = atoi(v[2]) ? : 16; /* GCC extension */
     
-    //char *car = v[1];
-    
-    //printf("&car: %d\n", &car);
-    
     //read:
-    bmpInfoHeader *infoHeader;
-    unsigned char *im= LoadBMP("subaru.bmp", infoHeader);
+    bmpInfoHeader infoHeader;
+    unsigned char *im= LoadBMP("subaru.bmp", &infoHeader);
     
     //calcular variables globals:
-    size_row = ((infoHeader->width*3 + 3) / 4) * 4;
-    width = infoHeader->width;
-    height = infoHeader->height;
+    size_row = ((infoHeader.width*3 + 3) / 4) * 4;
+    width = infoHeader.width;
+    height = infoHeader.height;
     size = width * height;
     
     //inicialitzar means:
@@ -177,11 +174,12 @@ int main(int c, char *v[])
     init_means(means, ncolors, im);
     
     //executem k means:
-    //int *assigns = malloc(size*sizeof(int));
-    //execute_k_means(means, assigns, im, ncolors, 10);
+    int *assigns = malloc(size*sizeof(int)); //vector d'assignacions (cada
+                                             //pixel a un i_mean)
+    execute_k_means(means, assigns, im, ncolors, 10);
 
     //assignem colors:
-    //assign_colors(means, im, ncolors);
+    assign_colors(means, im, ncolors);
     
     
     //convertir blanc i negre 1 for:
@@ -218,15 +216,15 @@ int main(int c, char *v[])
         r = im[j+2+i*size_row];
         g = im[j+1+i*size_row];
         b = im[j+i*size_row];
-        /*color = (r+g+b)/3;
+        color = (r+g+b)/3;
         im[j+i*size_row]=color;
         im[j+1+i*size_row]=color;
         im[j+2+i*size_row]=color;
       }
     }
     */
-    //DisplayInfo(car, infoHeader);
-    SaveBMP("sortida.bmp", infoHeader, im);
+    SaveBMP("sortida.bmp", &infoHeader, im);
+    DisplayInfo("sortida.bmp", &infoHeader);
     //DataFrame punts = k_means(data,k,number_of_iterations);
 	  //image im = read_ppm(v[1]);
 	  //color_quant(im, ncolors, 0);
