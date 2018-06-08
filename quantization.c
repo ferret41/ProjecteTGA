@@ -51,14 +51,14 @@ void init_means(Color means[], unsigned char *im) {
     }
 }
 
-void find_best_mean_seq(Color means[], int assigns[], unsigned char *im, int N) {
+void find_best_mean_seq(Color means[], int assigns[], unsigned char *im, int N, int ncolors) {
     int i;
     for (i = 0; i < N; ++i) {
         int j;
         int index = (i*3/Size_row) * Size_row + ((i*3)%Size_row);
         int dist_min = -1;
         int dist_act, assign;
-        for (j = 0; j < N_colors; ++j) {
+        for (j = 0; j < ncolors; ++j) {
             dist_act = square(im[index+2] - means[j].r) + square(im[index+1] - means[j].g) + square(im[index] - means[j].b);
             if (dist_min == -1 || dist_act < dist_min) {
                 dist_min = dist_act;
@@ -69,6 +69,19 @@ void find_best_mean_seq(Color means[], int assigns[], unsigned char *im, int N) 
     }
 }
 
+void sum_up_and_count_points(Color new_means[], int assigns[], unsigned char *im, int N, int counts[]) {
+    int i;
+    for (i = 0; i < Size; ++i) {
+        int imeans = assigns[i];
+        int index = getIndexColor(i);
+        new_means[imeans].r += im[index+2];
+        new_means[imeans].g += im[index+1];
+        new_means[imeans].b += im[index];
+        counts[imeans] += 1;
+    }
+    
+}
+
 void execute_k_means(Color means[], int assigns[], unsigned char *im) {
     int it;
     Color *new_means = malloc(N_colors*sizeof(Color));
@@ -76,24 +89,16 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im) {
     for (it = 0; it < N_iterations; ++it) {
         
         //for each pixel find the best mean.
-        find_best_mean_seq(means, assigns, im, Size);
+        find_best_mean_seq(means, assigns, im, Size, N_colors);
         
-        int i;
-        //Sum up and count points for each cluster.
-        //set count to 0
+        //set counts and new_means to 0
         memset (counts, 0, sizeof (int) * N_colors);
         memset (new_means, 0, sizeof (Color) * N_colors);
-        for (i = 0; i < Size; ++i) {
-            int imeans = assigns[i];
-            int index = getIndexColor(i);
-            new_means[imeans].r += im[index+2];
-            new_means[imeans].g += im[index+1];
-            new_means[imeans].b += im[index];
-            counts[imeans] += 1;
-        }
-    
+        //Sum up and count points for each cluster.
+        sum_up_and_count_points(new_means, assigns, im, Size, counts);
         //Divide sums by counts to get new centroids.
         
+        int i;
         for (i = 0; i < N_colors; ++i) {
             //Turn 0/0 into 0/1 to avoid zero division.
             if(counts[i] == 0) counts[i] = 1;
