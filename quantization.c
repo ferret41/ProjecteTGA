@@ -96,6 +96,8 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im) {
             means[i].b = new_means[i].b / counts[i];
         }
     }
+    free(new_means);
+    free(counts);
 }
 
 void assign_colors(Color means[], int assigns[], unsigned char *im) {
