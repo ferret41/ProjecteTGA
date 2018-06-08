@@ -14,7 +14,7 @@ int square(int value) {
     return value * value;
 }
 
-int getIndexColor(unsigned char *im, int index) {
+int getIndexColor(int index) {
     int i = (index*3/Size_row);
     int j = ((index*3)%Size_row);
     return i * Size_row + j;
@@ -44,7 +44,7 @@ void init_means(Color means[], unsigned char *im) {
     int i;
     for (i = 0; i < N_colors; ++i) {
         r = rand() % Size;
-        int index = getIndexColor(im, r);
+        int index = getIndexColor(r);
         means[i].r = im[index+2];
         means[i].g = im[index+1];
         means[i].b = im[index];
@@ -61,7 +61,7 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im) {
         int i;
         for (i = 0; i < Size; ++i) {
             int j;
-            int index = getIndexColor(im, i);
+            int index = getIndexColor(i);
             int dist_min = -1;
             int dist_act, assign;
             for (j = 0; j < N_colors; ++j) {
@@ -80,7 +80,7 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im) {
         memset (new_means, 0, sizeof (Color) * N_colors);
         for (i = 0; i < Size; ++i) {
             int imeans = assigns[i];
-            int index = getIndexColor(im, i);
+            int index = getIndexColor(i);
             new_means[imeans].r += im[index+2];
             new_means[imeans].g += im[index+1];
             new_means[imeans].b += im[index];
@@ -103,7 +103,7 @@ void execute_k_means(Color means[], int assigns[], unsigned char *im) {
 void assign_colors(Color means[], int assigns[], unsigned char *im) {
     int i;
     for (i = 0; i < Size; ++i) {
-        int index = getIndexColor(im, i);
+        int index = getIndexColor(i);
         im[index]=means[assigns[i]].b;
         im[index + 1]=means[assigns[i]].g;
         im[index + 2]=means[assigns[i]].r;  
