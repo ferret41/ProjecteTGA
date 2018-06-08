@@ -1,2 +1,3 @@
-*.x
+*.exe
+*.o
 sortida.bmp
