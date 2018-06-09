@@ -114,7 +114,7 @@ __global__ void divide_sums_by_counts_par(Color means_device[], int N_colors, Co
     }
 }
 
-void sum_up_and_count_points(Color new_means[], int assigns[], unsigned char *im, int N, int counts[], int Size_row, int Size) {
+void sum_up_and_count_points_seq(Color new_means[], int assigns[], unsigned char *im, int counts[], int Size_row, int Size) {
     int i;
     for (i = 0; i < Size; ++i) {
         int imeans = assigns[i];
@@ -124,6 +124,17 @@ void sum_up_and_count_points(Color new_means[], int assigns[], unsigned char *im
         new_means[imeans].b += im[index];
         counts[imeans] += 1;
     }
+    
+}
+
+__global__ void sum_up_and_count_points_par(Color new_means[], int assigns[], unsigned char *im, int counts[], int Size_row, int Size, int N_colors, Color snew_means[], int scounts[]) {
+    ///snew_means[N_colors][Size]
+    ///counts[N_colors][Size]
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    
+    
     
 }
 
@@ -195,12 +206,21 @@ int main(int c, char *v[])
     Color *means_device;
     Color *new_means;
     int *counts;
+    
+    Color *snew_means;  //shared memory (reduction)
+    int *scounts;       //shared memory (reduction)
+    
     int *assigns;
     unsigned char *im_device;
+    
     
     cudaMalloc((Color**)&means_device, N_colors*sizeof(Color));
     cudaMalloc((Color**)&new_means, N_colors*sizeof(Color));
     cudaMalloc((int**)&counts, N_colors * sizeof (int));
+    
+    cudaMalloc((Color**)&snew_means, N_colors*sizeof(Color)*Size);
+    cudaMalloc((int**)&scounts, N_colors * sizeof (int)*Size);
+    
     cudaMalloc((int**)&assigns, Size*sizeof(int));
     cudaMalloc((unsigned char**)&im_device, infoHeader.imgsize* sizeof(unsigned char));
     CheckCudaError((char *) "Obtener Memoria en el device", __LINE__);
@@ -220,21 +240,24 @@ int main(int c, char *v[])
     for (it = 0; it < N_iterations; ++it) {
         
         //for each pixel find the best mean.
-        find_best_mean_par<<<dimGrid, dimBlock>>>(means_host, assigns, im_host, Size, N_colors, Size_row);
+        find_best_mean_par<<<dimGrid, dimBlock>>>(means_device, assigns, im_device, Size, N_colors, Size_row);
         
         //set counts and new_means to 0
         cudaMemset (counts, 0, sizeof (int) * N_colors);
         cudaMemset (new_means, 0, sizeof (Color) * N_colors);
-        //Sum up and count points for each cluster.
-        ///sum_up_and_count_points_par(new_means, assigns, im_host, Size, counts);
-        //Divide sums by counts to get new centroids.
         
+        //Sum up and count points for each cluster.
+        sum_up_and_count_points_par<<<dimGrid, dimBlock>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors, snew_means, scounts);
+        
+        //Divide sums by counts to get new centroids.
         divide_sums_by_counts_par<<<dimGridMeans, dimBlock>>>(means_device, N_colors, new_means, counts);
     }
     
     //assignem colors:
-    assign_colors_par<<<dimGrid, dimBlock>>>(means_host, assigns, im_host, Size_row, Size);
+    assign_colors_par<<<dimGrid, dimBlock>>>(means_device, assigns, im_device, Size_row, Size);
      
+    //copy to host:
+    cudaMemcpy(im_host, im_device, infoHeader.imgsize * sizeof(unsigned char), cudaMemcpyDeviceToHost);
     
     ///display means final
     fprintf(stderr, "Means final:\n");
@@ -251,8 +274,10 @@ int main(int c, char *v[])
     //alliberar memoria DEVICE:
     cudaFree(means_device);
     cudaFree(new_means);
+    cudaFree(snew_means);
     cudaFree(assigns);
     cudaFree(im_device);
     cudaFree(counts);
+    cudaFree(scounts);
     return 0;
 }
