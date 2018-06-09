@@ -31,4 +31,4 @@ $(EXEC): $(OBJC)
 	$(NVCC) $(OBJC) -o $(EXEC)  $(LD_FLAGS)
 
 clean:
-	rm -rf *.o *.exe sortida.bmp
+	rm -rf *.o *.exe sortida.bmp Quantization.*
