@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 extern "C" {
-#include "bmp.h"
+    #include "bmp.h"
 }
-
 
 typedef struct Color {
     unsigned int r, g, b;
@@ -85,37 +84,6 @@ void sum_up_and_count_points(Color new_means[], int assigns[], unsigned char *im
     
 }
 
-void execute_k_means(Color means[], int assigns[], unsigned char *im) {
-    int it;
-    Color *new_means;
-    new_means = (Color*) malloc(N_colors*sizeof(Color));
-    int *counts;
-    counts = (int*) malloc (N_colors * sizeof (int));
-    for (it = 0; it < N_iterations; ++it) {
-        
-        //for each pixel find the best mean.
-        find_best_mean_seq(means, assigns, im, Size, N_colors);
-        
-        //set counts and new_means to 0
-        memset (counts, 0, sizeof (int) * N_colors);
-        memset (new_means, 0, sizeof (Color) * N_colors);
-        //Sum up and count points for each cluster.
-        sum_up_and_count_points(new_means, assigns, im, Size, counts);
-        //Divide sums by counts to get new centroids.
-        
-        int i;
-        for (i = 0; i < N_colors; ++i) {
-            //Turn 0/0 into 0/1 to avoid zero division.
-            if(counts[i] == 0) counts[i] = 1;
-            means[i].r = new_means[i].r / counts[i];
-            means[i].g = new_means[i].g / counts[i];
-            means[i].b = new_means[i].b / counts[i];
-        }
-    }
-    free(new_means);
-    free(counts);
-}
-
 void assign_colors(Color means[], int assigns[], unsigned char *im) {
     int i;
     for (i = 0; i < Size; ++i) {
@@ -138,7 +106,7 @@ int main(int c, char *v[])
     
     //read image:
     bmpInfoHeader infoHeader;
-    unsigned char *im= LoadBMP(v[1], &infoHeader);
+    unsigned char *im_host = LoadBMP(v[1], &infoHeader);
     
     //init variables globals:
     N_iterations = atoi(v[2]);
@@ -150,33 +118,64 @@ int main(int c, char *v[])
     //init seed
     srand(atoi(v[3])); 
     
+    //obtenir memoria HOST:
+    Color *means_host;
+    means_host = (Color*) malloc(N_colors*sizeof(Color));
+    
     //inicialitzar means:
-    Color *means;
-    means = (Color*) malloc(N_colors*sizeof(Color));
-    init_means(means, im);
+    init_means(means_host, im_host);
+    
+    //obtenir memoria DEVICE:
+    int *assigns;
+    assigns = (int*) malloc(Size*sizeof(int));
+    Color *new_means;
+    new_means = (Color*) malloc(N_colors*sizeof(Color));
+    int *counts;
+    counts = (int*) malloc (N_colors * sizeof (int));
     
     ///display means inti
     fprintf(stderr, "Means init:\n");
-    display_means(means);
+    display_means(means_host);
     
     //executem k means:
-    int *assigns;
-    assigns = (int*) malloc(Size*sizeof(int)); //vector d'assignacions (cada
-                                             //pixel a un i_mean)
-    execute_k_means(means, assigns, im);
+    int it;
+    for (it = 0; it < N_iterations; ++it) {
+        
+        //for each pixel find the best mean.
+        find_best_mean_seq(means_host, assigns, im_host, Size, N_colors);
+        
+        //set counts and new_means to 0
+        memset (counts, 0, sizeof (int) * N_colors);
+        memset (new_means, 0, sizeof (Color) * N_colors);
+        //Sum up and count points for each cluster.
+        sum_up_and_count_points(new_means, assigns, im_host, Size, counts);
+        //Divide sums by counts to get new centroids.
+        
+        int i;
+        for (i = 0; i < N_colors; ++i) {
+            //Turn 0/0 into 0/1 to avoid zero division.
+            if(counts[i] == 0) counts[i] = 1;
+            means_host[i].r = new_means[i].r / counts[i];
+            means_host[i].g = new_means[i].g / counts[i];
+            means_host[i].b = new_means[i].b / counts[i];
+        }
+    }
+    
     //assignem colors:
-    assign_colors(means, assigns, im);
+    assign_colors(means_host, assigns, im_host);
     
     ///display means final
     fprintf(stderr, "Means final:\n");
-    display_means(means);
+    display_means(means_host);
 
     //save image
-    SaveBMP("sortida.bmp", &infoHeader, im);
+    SaveBMP("sortida.bmp", &infoHeader, im_host);
     DisplayInfo("sortida.bmp", &infoHeader);    
          
-    free(im);
+    free(im_host);
     free(assigns);
-    free(means);
+    free(means_host);
+    free(new_means);
+    free(counts);
     return 0;
 }
