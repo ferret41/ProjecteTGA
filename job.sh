@@ -12,5 +12,6 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 
 ./cuda-quantization.exe subaru.bmp 10 80 10
 
+#nvprof --print-gpu-trace --unified-memory-profiling off ./cuda-quantization.exe subaru.bmp 10 80 10
 
 
