@@ -25,13 +25,14 @@ int square(int value) {
     return value * value;
 }
 
-void display_means(Color means[], int N_colors) {
+void display_means(Color means[], int counts[], int N_colors) {
     int i;
     for (i = 0; i < N_colors; ++i) {
         fprintf(stderr, "mean %d:  ", i);
         fprintf(stderr, "r: %d, ", means[i].r);
         fprintf(stderr, "g: %d, ", means[i].g);
-        fprintf(stderr, "b: %d\n", means[i].b);
+        fprintf(stderr, "b: %d, ", means[i].b);
+        fprintf(stderr, "count: %d\n", counts[i]);
         
     }
     fprintf(stderr, "\n");
@@ -48,7 +49,8 @@ void init_means(Color means[], unsigned char *im, int Size_row, int N_colors, in
     int r;
     int i;
     for (i = 0; i < N_colors; ++i) {
-        r = rand() % Size;
+        //r = rand() % Size; 
+        r = rand() % 1024; ///EDIT!!!!!1////
         int index = (r*3/Size_row) * Size_row + ((r*3)%Size_row);
         means[i].r = im[index+2];
         means[i].g = im[index+1];
@@ -128,13 +130,8 @@ void sum_up_and_count_points_seq(Color new_means[], int assigns[], unsigned char
 }
 
 __global__ void sum_up_and_count_points_par(Color new_means[], int assigns[], unsigned char *im, int counts[],
-            int Size_row, int Size, int N_colors) {
-     
-    extern __shared__ Color shared[];
-    
-    int *s_counts = (int *) shared; //matrix
-    Color *s_new_means = N_colors * sizeof(int) + shared; //matrix
-    
+            int Size_row, int Size, int N_colors, int s_counts[], Color s_new_means[]) {
+
     unsigned int tid = threadIdx.x;
     unsigned int id = blockIdx.x*blockDim.x + threadIdx.x;
     
@@ -182,7 +179,6 @@ __global__ void sum_up_and_count_points_par(Color new_means[], int assigns[], un
             counts[j] = s_counts[j];
         } 
     }
-    new_means[0].r = 99;
 }
 
 __global__ void findandsum(Color means[],Color new_means[], int assigns[], unsigned char *im, int counts[],
@@ -260,6 +256,7 @@ int main(int c, char *v[])
     Color *means_host;
     means_host = (Color*) malloc(N_colors*sizeof(Color));
     
+    
     //inicialitzar means:
     init_means(means_host, im_host, Size_row, N_colors, Size);
     
@@ -277,7 +274,7 @@ int main(int c, char *v[])
     nThreads = THREADS;
     nBlocks = (Size + nThreads - 1)/nThreads;
 
-    ///dim3 dimGrid(nBlocks, 1, 1);
+    //dim3 dimGrid(nBlocks, 1, 1);
     dim3 dimGrid(1, 1, 1); ///EDIT!!!!!!!!!!!!!
     dim3 dimBlock(nThreads, 1, 1);
     
@@ -293,6 +290,9 @@ int main(int c, char *v[])
     int *assigns;
     unsigned char *im_device;
     
+    int *s_counts;
+    Color *s_new_means;
+    
     
     cudaMalloc((Color**)&means_device, N_colors*sizeof(Color));
     cudaMalloc((Color**)&new_means, N_colors*sizeof(Color));
@@ -300,6 +300,9 @@ int main(int c, char *v[])
     
     cudaMalloc((int**)&assigns, Size*sizeof(int));
     cudaMalloc((unsigned char**)&im_device, infoHeader.imgsize* sizeof(unsigned char));
+    
+    cudaMalloc((int**)&s_counts, THREADS * N_colors * sizeof (int));
+    cudaMalloc((Color**) &s_new_means, THREADS * N_colors * sizeof(Color));
     CheckCudaError((char *) "Obtener Memoria en el device", __LINE__);
     
     //copiar dades al device:
@@ -307,10 +310,12 @@ int main(int c, char *v[])
     cudaMemcpy(means_device, means_host, N_colors*sizeof(Color), cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
     
-    //shared memory size:
-    int sh_mem_size = THREADS * (N_colors * sizeof (int)  + Size * sizeof (Color));
-    //executem k means:
     
+    int *counts_host;
+    counts_host = (int*) malloc(sizeof(int) * N_colors);
+    
+    
+    //executem k means:
     int it;
     for (it = 0; it < N_iterations; ++it) {
         
@@ -324,16 +329,17 @@ int main(int c, char *v[])
         cudaDeviceSynchronize();
         
         //Sum up and count points for each cluster.
-        sum_up_and_count_points_par<<<dimGrid, dimBlock, sh_mem_size>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors);
-        
-        cudaMemcpy(means_host, new_means, N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
-        display_means(means_host, N_colors);
+        sum_up_and_count_points_par<<<dimGrid, dimBlock>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors, s_counts, s_new_means);
         cudaDeviceSynchronize();
         
+        cudaMemcpy(means_host, new_means, N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
+        cudaMemcpy(counts_host, counts, N_colors * sizeof(int), cudaMemcpyDeviceToHost);
+        ///display means:
+        display_means(means_host, counts_host, N_colors);
         /*
 		findandsum<<<dimGrid, dimBlock>>>(means_device,new_means, assigns, im_device, counts, Size_row, Size, N_colors);
 		cudaDeviceSynchronize();
-       */
+        */
         
         
         //Divide sums by counts to get new centroids.
@@ -350,12 +356,15 @@ int main(int c, char *v[])
     
     //copy to host:
     cudaMemcpy(im_host, im_device, infoHeader.imgsize * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+    cudaMemcpy(means_host, means_device, N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
     
     
     //STOP RECORD!!
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);
+    
+
     
     //save image
     SaveBMP("sortida.bmp", &infoHeader, im_host);
