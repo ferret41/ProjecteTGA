@@ -74,7 +74,7 @@ void find_best_mean_seq(Color means[], int assigns[], unsigned char *im, int N, 
     }
 }
 
-__global__ void find_best_mean_par(const Color means[], int assigns[], const unsigned char *im, int N, int ncolors, int Size_row) {
+__global__ void find_best_mean_par(Color means[], int assigns[], unsigned char *im, int N, int ncolors, int Size_row) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id < N) {
         int j;
@@ -103,7 +103,7 @@ void divide_sums_by_counts_seq(Color means_host[], int N_colors, Color new_means
     }
 }
 
-__global__ void divide_sums_by_counts_par(Color means_device[], int N_colors, const Color new_means[], int counts[]) {
+__global__ void divide_sums_by_counts_par(Color means_device[], int N_colors, Color new_means[], int counts[]) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id < N_colors) {
         //Turn 0/0 into 0/1 to avoid zero division.
@@ -117,8 +117,8 @@ __global__ void divide_sums_by_counts_par(Color means_device[], int N_colors, co
 void sum_up_and_count_points_seq(Color new_means[], int assigns[], unsigned char *im, int counts[], int Size_row, int Size) {
     int i;
     for (i = 0; i < Size; ++i) {
-        int imeans = assigns[i];
         int index = (i*3/Size_row) * Size_row + ((i*3)%Size_row);
+        int imeans = assigns[i];
         new_means[imeans].r += im[index+2];
         new_means[imeans].g += im[index+1];
         new_means[imeans].b += im[index];
@@ -127,21 +127,65 @@ void sum_up_and_count_points_seq(Color new_means[], int assigns[], unsigned char
     
 }
 
-__global__ void sum_up_and_count_points_par(Color new_means[], const int assigns[], const unsigned char *im, int counts[],
+__global__ void sum_up_and_count_points_par(Color new_means[], int assigns[], unsigned char *im, int counts[],
             int Size_row, int Size, int N_colors) {
-    int id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (id < Size) {
-        int imeans = assigns[id];
-        int index = (id*3/Size_row) * Size_row + ((id*3)%Size_row);
-        atomicAdd(&new_means[imeans].r, im[index+2]);
-        atomicAdd(&new_means[imeans].g, im[index+1]);
-        atomicAdd(&new_means[imeans].b, im[index]);
-        atomicAdd(&counts[imeans], 1);
-    }
+     
+    extern __shared__ Color shared[];
     
+    int *s_counts = (int *) shared; //matrix
+    Color *s_new_means = N_colors * sizeof(int) + shared; //matrix
+    
+    unsigned int tid = threadIdx.x;
+    unsigned int id = blockIdx.x*blockDim.x + threadIdx.x;
+    
+    //inicialitzar 
+    for (int j = 0; j < N_colors; ++j) {
+        
+        if (j == assigns[id]) {
+            int index = (id*3/Size_row) * Size_row + ((id*3)%Size_row);
+            s_new_means[tid*N_colors + j].r = im[index+2];
+            s_new_means[tid*N_colors + j].g = im[index+1];
+            s_new_means[tid*N_colors + j].b = im[index];
+            s_counts[tid*N_colors + j] = 1;
+        }
+        else {
+            s_new_means[tid*N_colors + j].r = 0;
+            s_new_means[tid*N_colors + j].g = 0;
+            s_new_means[tid*N_colors + j].b = 0;
+            s_counts[tid*N_colors + j] = 0;
+        }
+    }
+    __syncthreads();
+    
+    //reduccio
+    unsigned int s;
+    for(s=1; s < blockDim.x; s *= 2) { 
+        if (tid % (2*s) == 0) {
+            for (int j = 0; j < N_colors; ++j) {
+                
+                s_new_means[tid*N_colors + j].r += s_new_means[(tid + s)*N_colors + j].r;
+                s_new_means[tid*N_colors + j].g += s_new_means[(tid + s)*N_colors + j].g;
+                s_new_means[tid*N_colors + j].b += s_new_means[(tid + s)*N_colors + j].b;
+                
+                s_counts[tid*N_colors + j] += s_counts[(tid + s)*N_colors + j];
+            }
+        }
+        __syncthreads(); 
+    }
+    __syncthreads();
+    //copiar valors:
+    if (tid == 0) {
+       for (int j = 0; j < N_colors; ++j) {
+            new_means[j].r = s_new_means[j].r;
+            new_means[j].g = s_new_means[j].g;
+            new_means[j].b = s_new_means[j].b;
+            counts[j] = s_counts[j];
+        } 
+    }
+    new_means[0].r = 99;
 }
 
-__global__ void findandsum(Color means[],Color new_means[], int assigns[], const unsigned char *im, int counts[],
+__global__ void findandsum(Color means[],Color new_means[], int assigns[], unsigned char *im, int counts[],
     int Size_row, int Size, int ncolors) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id < Size) {
@@ -176,7 +220,7 @@ void assign_colors_seq(Color means[], int assigns[], unsigned char *im, int Size
     }
 }
 
-__global__ void assign_colors_par(const Color means[], const int assigns[], unsigned char *im, int Size_row, int Size) {
+__global__ void assign_colors_par(Color means[], int assigns[], unsigned char *im, int Size_row, int Size) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id < Size) {
         int index = (id*3/Size_row) * Size_row + ((id*3)%Size_row);
@@ -233,7 +277,8 @@ int main(int c, char *v[])
     nThreads = THREADS;
     nBlocks = (Size + nThreads - 1)/nThreads;
 
-    dim3 dimGrid(nBlocks, 1, 1);
+    ///dim3 dimGrid(nBlocks, 1, 1);
+    dim3 dimGrid(1, 1, 1); ///EDIT!!!!!!!!!!!!!
     dim3 dimBlock(nThreads, 1, 1);
     
     nBlocksMeans = (N_colors + nThreads - 1)/nThreads;
@@ -262,6 +307,8 @@ int main(int c, char *v[])
     cudaMemcpy(means_device, means_host, N_colors*sizeof(Color), cudaMemcpyHostToDevice);
     CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
     
+    //shared memory size:
+    int sh_mem_size = THREADS * (N_colors * sizeof (int)  + Size * sizeof (Color));
     //executem k means:
     
     int it;
@@ -277,27 +324,33 @@ int main(int c, char *v[])
         cudaDeviceSynchronize();
         
         //Sum up and count points for each cluster.
-        sum_up_and_count_points_par<<<dimGrid, dimBlock>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors);
+        sum_up_and_count_points_par<<<dimGrid, dimBlock, sh_mem_size>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors);
         
+        cudaMemcpy(means_host, new_means, N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
+        display_means(means_host, N_colors);
         cudaDeviceSynchronize();
         
         /*
 		findandsum<<<dimGrid, dimBlock>>>(means_device,new_means, assigns, im_device, counts, Size_row, Size, N_colors);
 		cudaDeviceSynchronize();
-        */
+       */
+        
         
         //Divide sums by counts to get new centroids.
-        divide_sums_by_counts_par<<<dimGridMeans, dimBlock>>>(means_device, N_colors, new_means, counts);
+        //divide_sums_by_counts_par<<<dimGridMeans, dimBlock>>>(means_device, N_colors, new_means, counts);
         
         cudaDeviceSynchronize();
+        
+        
         
     }
     
     //assignem colors:
     assign_colors_par<<<dimGrid, dimBlock>>>(means_device, assigns, im_device, Size_row, Size);
-     
+    
     //copy to host:
     cudaMemcpy(im_host, im_device, infoHeader.imgsize * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+    
     
     //STOP RECORD!!
     cudaEventRecord(stop, 0);
@@ -308,12 +361,20 @@ int main(int c, char *v[])
     SaveBMP("sortida.bmp", &infoHeader, im_host);
     DisplayInfo("sortida.bmp", &infoHeader);
     
-    printf("\Quantization CUDA 01\n");
+    int bytes_read_written = 2 * infoHeader.imgsize* sizeof(unsigned char) + //leer imagen y copiarla
+                             N_iterations * (                                //en cada iteracion se hace:
+                                sizeof (int) * 2 * N_colors +                   //leer y modificar counts
+                                sizeof (Color) * N_colors +                     //leer y modificar medias
+                                Size * 2 * sizeof(int) +                        //leer y modificar las asignaciones
+                                Size * 3 * sizeof (unsigned char)               //leer datos de imagen
+                             );       
+    
+    printf("\Quantization CUDA\n");
     printf("Image Size: %d\n", Size);
     printf("nThreads: %d\n", nThreads);
     printf("nBlocks: %d\n", nBlocks);
     printf("Tiempo Total %4.6f ms\n", elapsedTime);
-    printf("Ancho de Banda %4.3f GB/s\n", (infoHeader.imgsize* sizeof(unsigned char)) / (1000000 * elapsedTime));
+    printf("Ancho de Banda %4.3f GB/s\n", (bytes_read_written) / (1000000 * elapsedTime));
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);    
