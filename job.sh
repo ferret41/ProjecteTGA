@@ -10,7 +10,7 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 # Cambiar el shell
 #$ -S /bin/bash
 
-./cuda-quantization.exe subaru.bmp 10 99 10
+./cuda-quantization.exe subaru.bmp 10 99 12
 
 #nvprof --print-gpu-trace --unified-memory-profiling off ./cuda-quantization.exe subaru.bmp 10 80 10
 

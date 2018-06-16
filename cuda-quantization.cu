@@ -50,7 +50,6 @@ void init_means(Color means[], unsigned char *im, int Size_row, int N_colors, in
     int i;
     for (i = 0; i < N_colors; ++i) {
         r = rand() % Size; 
-        //r = rand() % 1024; ///EDIT!!!!!1////
         int index = (r*3/Size_row) * Size_row + ((r*3)%Size_row);
         means[i].r = im[index+2];
         means[i].g = im[index+1];
@@ -338,7 +337,6 @@ int main(int c, char *v[])
     nBlocks = (Size + nThreads - 1)/nThreads;
 
     dim3 dimGrid(nBlocks, 1, 1);
-    //dim3 dimGrid(1, 1, 1); ///EDIT!!!!!!!!!!!!!
     dim3 dimBlock(nThreads, 1, 1);
     
     nBlocksMeans = (N_colors + nThreads - 1)/nThreads;
@@ -369,8 +367,6 @@ int main(int c, char *v[])
     //START RECORD!!
     cudaEventRecord(start, 0);
 
-    
-  
     //obtenir memoria DEVICE:
     Color *means_device;
     Color *new_means;
@@ -379,21 +375,12 @@ int main(int c, char *v[])
     int *assigns;
     unsigned char *im_device;
     
-    /*int *s_counts;
-    Color *s_new_means;*/
-    
-    
-    
-    
     cudaMalloc((Color**)&means_device, N_colors*sizeof(Color));
     cudaMalloc((Color**)&new_means, nBlocks * N_colors*sizeof(Color));
     cudaMalloc((int**)&counts, nBlocks * N_colors * sizeof (int));
     
     cudaMalloc((int**)&assigns, Size*sizeof(int));
     cudaMalloc((unsigned char**)&im_device, infoHeader.imgsize* sizeof(unsigned char));
-    /*
-    cudaMalloc((int**)&s_counts, nBlocks * THREADS * N_colors * sizeof (int));
-    cudaMalloc((Color**) &s_new_means, nBlocks * THREADS * N_colors * sizeof(Color));*/
     CheckCudaError((char *) "Obtener Memoria en el device", __LINE__);
     
     //copiar dades al device:
@@ -515,7 +502,5 @@ int main(int c, char *v[])
     cudaFree(assigns);
     cudaFree(im_device);
     cudaFree(counts);
-    //cudaFree(s_counts);
-    //cudaFree(s_new_means);
     return 0;
 }
