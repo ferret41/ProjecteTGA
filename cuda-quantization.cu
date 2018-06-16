@@ -363,9 +363,6 @@ int main(int c, char *v[])
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     
-    
-    //START RECORD!!
-    cudaEventRecord(start, 0);
 
     //obtenir memoria DEVICE:
     Color *means_device;
@@ -390,6 +387,9 @@ int main(int c, char *v[])
 
     
     int shared_memory_size = N_colors*THREADS * sizeof(unsigned int);
+    
+    //START RECORD!!
+    cudaEventRecord(start, 0);
     
     //executem k means:
     int it;
@@ -460,13 +460,12 @@ int main(int c, char *v[])
     
     //copy to host:
     cudaMemcpy(im_host, im_device, infoHeader.imgsize * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-    cudaMemcpy(means_host, means_device, N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
-    
     
     //STOP RECORD!!
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);
+    
     
 
     

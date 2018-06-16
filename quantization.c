@@ -1,6 +1,8 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/times.h>
+#include <sys/resource.h>
 #include "bmp.h"
 
 typedef struct Color {
@@ -9,6 +11,15 @@ typedef struct Color {
 
 //Global variables:
 int Size, Size_row, N_colors, N_iterations;
+
+float GetTime(void)        
+{
+  struct timeval tim;
+  struct rusage ru;
+  getrusage(RUSAGE_SELF, &ru);
+  tim=ru.ru_utime;
+  return ((double)tim.tv_sec + (double)tim.tv_usec / 1000000.0)*1000.0;
+}
 
 int square(int value) {
     return value * value;
@@ -150,23 +161,32 @@ int main(int c, char *v[])
     init_means(means, im);
     
     ///display means inti
-    fprintf(stderr, "Means init:\n");
-    display_means(means);
+    //fprintf(stderr, "Means init:\n");
+    //display_means(means);
     
-    //executem k means:
+    
     int *assigns = malloc(Size*sizeof(int)); //vector d'assignacions (cada
                                              //pixel a un i_mean)
+    float t1 = GetTime();
+    
+    //executem k means:
     execute_k_means(means, assigns, im);
     //assignem colors:
     assign_colors(means, assigns, im);
     
+    float t2=GetTime();
+    
+    float SeqTime = (t2-t1)/10;
+    printf("Tiempo Total SEQUENCIAL %4.6f ms\n", SeqTime);
+    
+    
     ///display means final
-    fprintf(stderr, "Means final:\n");
-    display_means(means);
+    //fprintf(stderr, "Means final:\n");
+    //display_means(means);
 
     //save image
     SaveBMP("sortida.bmp", &infoHeader, im);
-    DisplayInfo("sortida.bmp", &infoHeader);    
+    //DisplayInfo("sortida.bmp", &infoHeader);    
          
     free(im);
     free(assigns);
