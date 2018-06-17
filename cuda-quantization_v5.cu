@@ -138,15 +138,14 @@ __global__ void matrix_reduction_color(Color new_means[], int assigns[], unsigne
     for (int j = 0; j < N_colors; ++j) {
         unsigned int aux = 0;
         
-        if (j == assigns[id]) {
+        if (id < Size && j == assigns[id]) {
             int index = (id*3/Size_row) * Size_row + ((id*3)%Size_row);
             aux += im[index+offset];
         }
         
-        //siguiente bloque:
-        if (id + blockDim.x < Size && j == assigns[(id + blockDim.x)]) {
+        if (id + blockDim.x < Size && j == assigns[id + blockDim.x]) {
             int index = ((id + blockDim.x)*3/Size_row) * Size_row + (((id + blockDim.x)*3)%Size_row);
-            if (index < Size) aux += im[index+offset];
+            aux += im[index+offset];
         }
         
         shared[tid*N_colors + j] = aux;
@@ -186,9 +185,9 @@ __global__ void matrix_reduction_color_2(Color new_means_2[], Color new_means[],
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[blockDim.x*N_colors + id *N_colors + j].r;
-        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[blockDim.x*N_colors + id * N_colors + j].g;
-        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[blockDim.x*N_colors + id *N_colors + j].b;
+        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[(id + blockDim.x) *N_colors + j].r;
+        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[(id + blockDim.x) * N_colors + j].g;
+        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[(id + blockDim.x) *N_colors + j].b;
     }
     
    
@@ -220,7 +219,7 @@ __global__ void matrix_reduction_count(int counts[], int assigns[], unsigned cha
     extern __shared__ unsigned int shared[];
     
     unsigned int tid = threadIdx.x;
-    unsigned int id = blockIdx.x*(blockDim.x*2) + threadIdx.x;
+    unsigned int id = blockIdx.x*(blockDim.x * 2) + threadIdx.x;
     
     //init shared
     for (int j = 0; j < N_colors; ++j) {
@@ -230,8 +229,7 @@ __global__ void matrix_reduction_count(int counts[], int assigns[], unsigned cha
             aux += 1;
         }
         
-        //siguiente bloque:
-        if (id + blockDim.x < Size && j == assigns[(id + blockDim.x)]) {
+        if (j == assigns[id + blockDim.x]) {
             aux += 1;
         }
         
@@ -267,7 +265,7 @@ __global__ void matrix_reduction_count_2(int counts_2[], int counts[], int Size_
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[blockDim.x*N_colors + (id * N_colors) + j];
+        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[((id + blockDim.x) * N_colors) + j];
     }
     
     __syncthreads();
@@ -459,11 +457,11 @@ int main(int c, char *v[])
     
     cudaMalloc((Color**)&means_device, N_colors*sizeof(Color));
     
-    cudaMalloc((Color**)&new_means, (nBlocks/(2*nThreads)) * N_colors*sizeof(Color));
-    cudaMalloc((int**)&counts, (nBlocks/(2*nThreads)) * N_colors * sizeof (int));
+    cudaMalloc((Color**)&new_means, (nBlocks/(nThreads)) * N_colors*sizeof(Color));
+    cudaMalloc((int**)&counts, (nBlocks/(nThreads)) * N_colors * sizeof (int));
     
-    cudaMalloc((Color**)&new_means_2, (nBlocks/(4*nThreads)) * N_colors*sizeof(Color));
-    cudaMalloc((int**)&counts_2, (nBlocks/(4*nThreads)) * N_colors * sizeof (int));
+    cudaMalloc((Color**)&new_means_2, (nBlocks/(2*nThreads)) * N_colors*sizeof(Color));
+    cudaMalloc((int**)&counts_2, (nBlocks/(2*nThreads)) * N_colors * sizeof (int));
     
     cudaMalloc((int**)&assigns, Size*sizeof(int));
     cudaMalloc((unsigned char**)&im_device, infoHeader.imgsize* sizeof(unsigned char));
@@ -485,8 +483,8 @@ int main(int c, char *v[])
     for (it = 0; it < N_iterations; ++it) {
         
         //set counts and new_means to 0
-        cudaMemset (counts, 0, nBlocks/(2*nThreads) * sizeof (int) * N_colors);
-        cudaMemset (new_means, 0, nBlocks/(2*nThreads)* sizeof (Color) * N_colors);
+        cudaMemset (counts, 0, nBlocks/(nThreads) * sizeof (int) * N_colors);
+        cudaMemset (new_means, 0, nBlocks/(nThreads)* sizeof (Color) * N_colors);
         
         //for each pixel find the best mean.
         find_best_mean_par<<<dimGrid, dimBlock>>>(means_device, assigns, im_device, Size, N_colors, Size_row);
@@ -505,23 +503,24 @@ int main(int c, char *v[])
         matrix_reduction_color<<<nBlocks/(2*nThreads), dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 1);
         matrix_reduction_color<<<nBlocks/(2*nThreads), dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 0);
         
+        cudaDeviceSynchronize();
+        
         //volmemos a hacer otra reduccion
         matrix_reduction_count_2<<<nBlocks/(4*nThreads), dimBlock, shared_memory_size>>>(counts_2, counts, Size_row, Size, N_colors);
         matrix_reduction_color_2<<<nBlocks/(4*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 2);
         matrix_reduction_color_2<<<nBlocks/(4*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 1);
         matrix_reduction_color_2<<<nBlocks/(4*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 0);
 
-        cudaDeviceSynchronize();
         
         
-        cudaMemcpy(means_host_red, new_means_2, (nBlocks/(4*nThreads)) * N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
-        cudaMemcpy(counts_host_red, counts_2, (nBlocks/(4*nThreads)) * N_colors * sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(means_host_red, new_means_2, (nBlocks/(2*nThreads)) * N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
+        cudaMemcpy(counts_host_red, counts_2, (nBlocks/(2*nThreads)) * N_colors * sizeof(int), cudaMemcpyDeviceToHost);
         
         memset(counts_host, 0, sizeof (int) * N_colors);
         memset(means_host, 0, sizeof (Color) * N_colors);
         
         int i, j;
-        for (i = 0; i < nBlocks/(4*nThreads); ++i) {
+        for (i = 0; i < nBlocks/(2*nThreads); ++i) {
             for (j = 0; j < N_colors; ++j) {
                 counts_host[j] += counts_host_red[i*N_colors + j];
                 means_host[j].r += means_host_red[i*N_colors + j].r;

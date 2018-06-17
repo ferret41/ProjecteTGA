@@ -179,9 +179,9 @@ __global__ void matrix_reduction_color_2(Color new_means_2[], Color new_means[],
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[blockDim.x*N_colors + id *N_colors + j].r;
-        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[blockDim.x*N_colors + id * N_colors + j].g;
-        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[blockDim.x*N_colors + id *N_colors + j].b;
+        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[(id + blockDim.x) *N_colors + j].r;
+        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[(id + blockDim.x) * N_colors + j].g;
+        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[(id + blockDim.x) *N_colors + j].b;
     }
     
    
@@ -254,7 +254,7 @@ __global__ void matrix_reduction_count_2(int counts_2[], int counts[], int Size_
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[blockDim.x*N_colors + (id * N_colors) + j];
+        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[((id + blockDim.x) * N_colors) + j];
     }
     
     __syncthreads();
@@ -420,9 +420,9 @@ int main(int c, char *v[])
     counts_host = (int*) malloc(sizeof(int) * N_colors);
     
     Color *means_host_red;
-    means_host_red = (Color*) malloc((nBlocks/(2*nThreads)) * N_colors*sizeof(Color));
+    means_host_red = (Color*) malloc((nBlocks/(nThreads)) * N_colors*sizeof(Color));
     int *counts_host_red;
-    counts_host_red = (int*) malloc((nBlocks/(2*nThreads)) * sizeof(int) * N_colors);
+    counts_host_red = (int*) malloc((nBlocks/(nThreads)) * sizeof(int) * N_colors);
     
     
     //inicialitzar means:
@@ -449,8 +449,8 @@ int main(int c, char *v[])
     cudaMalloc((Color**)&new_means, nBlocks * N_colors*sizeof(Color));
     cudaMalloc((int**)&counts, nBlocks * N_colors * sizeof (int));
     
-    cudaMalloc((Color**)&new_means_2, (nBlocks/(2*nThreads)) * N_colors*sizeof(Color));
-    cudaMalloc((int**)&counts_2, (nBlocks/(2*nThreads)) * N_colors * sizeof (int));
+    cudaMalloc((Color**)&new_means_2, (nBlocks/(nThreads)) * N_colors*sizeof(Color));
+    cudaMalloc((int**)&counts_2, (nBlocks/(nThreads)) * N_colors * sizeof (int));
     
     cudaMalloc((int**)&assigns, Size*sizeof(int));
     cudaMalloc((unsigned char**)&im_device, infoHeader.imgsize* sizeof(unsigned char));
@@ -501,14 +501,14 @@ int main(int c, char *v[])
         cudaDeviceSynchronize();
         
         
-        cudaMemcpy(means_host_red, new_means_2, (nBlocks/(2*nThreads)) * N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
-        cudaMemcpy(counts_host_red, counts_2, (nBlocks/(2*nThreads)) * N_colors * sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(means_host_red, new_means_2, (nBlocks/(nThreads)) * N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
+        cudaMemcpy(counts_host_red, counts_2, (nBlocks/(nThreads)) * N_colors * sizeof(int), cudaMemcpyDeviceToHost);
         
         memset(counts_host, 0, sizeof (int) * N_colors);
         memset(means_host, 0, sizeof (Color) * N_colors);
         
         int i, j;
-        for (i = 0; i < nBlocks/(2*nThreads); ++i) {
+        for (i = 0; i < nBlocks/(nThreads); ++i) {
             for (j = 0; j < N_colors; ++j) {
                 counts_host[j] += counts_host_red[i*N_colors + j];
                 means_host[j].r += means_host_red[i*N_colors + j].r;
