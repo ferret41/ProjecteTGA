@@ -179,9 +179,9 @@ __global__ void matrix_reduction_color_2(Color new_means_2[], Color new_means[],
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[(id * blockDim.x)*N_colors + j].r;
-        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[(id * blockDim.x)*N_colors + j].g;
-        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[(id * blockDim.x)*N_colors + j].b;
+        if (offset == 2)         shared[tid*N_colors + j] = new_means[id*N_colors + j].r + new_means[blockDim.x*N_colors + id *N_colors + j].r;
+        else if (offset == 1)    shared[tid*N_colors + j] = new_means[id*N_colors + j].g + new_means[blockDim.x*N_colors + id * N_colors + j].g;
+        else                     shared[tid*N_colors + j] = new_means[id*N_colors + j].b + new_means[blockDim.x*N_colors + id *N_colors + j].b;
     }
     
    
@@ -254,7 +254,7 @@ __global__ void matrix_reduction_count_2(int counts_2[], int counts[], int Size_
     //init shared
     for (int j = 0; j < N_colors; ++j) {
         
-        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[(id * blockDim.x)*N_colors + j];
+        shared[tid*N_colors + j] = counts[id*N_colors + j] + counts[blockDim.x*N_colors + (id * N_colors) + j];
     }
     
     __syncthreads();
@@ -497,7 +497,7 @@ int main(int c, char *v[])
         matrix_reduction_color_2<<<nBlocks/(2*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 2);
         matrix_reduction_color_2<<<nBlocks/(2*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 1);
         matrix_reduction_color_2<<<nBlocks/(2*nThreads), dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 0);
-        
+
         cudaDeviceSynchronize();
         
         
