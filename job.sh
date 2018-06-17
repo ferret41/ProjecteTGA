@@ -19,10 +19,11 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 #./cuda-quantization.exe ${IMAGE} ${NITERATIONS} ${SEED} ${NCOLORS}
 #./cuda-quantization.exe ${IMAGE} ${NITERATIONS} ${SEED} ${NCOLORS}
 
-./quantization.exe subaru.bmp 10 99 12
+#./quantization.exe subaru.bmp 10 99 12
 ./cuda-quantization.exe subaru.bmp 10 99 12
 ./cuda-quantization_v2.exe subaru.bmp 10 99 12
 ./cuda-quantization_v3.exe subaru.bmp 10 99 12
+./cuda-quantization_v4.exe subaru.bmp 10 99 12
 
 #nvprof --print-gpu-trace --unified-memory-profiling off ./cuda-quantization.exe subaru.bmp 10 80 10
 
