@@ -7,10 +7,13 @@ LD_FLAGS    = -Wno-deprecated-gpu-targets -lcudart -Xlinker -rpath,$(CUDA_HOME)/
 EXEC        = cuda-quantization.exe
 OBJC        = cuda-quantization.o bmp.o
 
+EXEC2        = cuda-quantization_v2.exe
+OBJC2        = cuda-quantization_v2.o bmp.o
+
 EXE         = quantization.exe
 OBJ         = quantization.o bmp.o
 
-default: $(EXEC) $(EXE)
+default: $(EXEC) $(EXEC2) $(EXE)
 
 quantization: quantization.c
 	gcc -o quantization.exe quantization.c bmp.c bmp.h -Wall
@@ -23,12 +26,18 @@ quantization.o: quantization.c
 
 cuda-quantization.o: cuda-quantization.cu
 	$(NVCC) -c cuda-quantization.cu $(NVCC_FLAGS)
+	
+cuda-quantization_v2.o: cuda-quantization_v2.cu
+	$(NVCC) -c cuda-quantization_v2.cu $(NVCC_FLAGS)
 
 $(EXE): $(OBJ)
 	gcc $(OBJ) -o $(EXE)
 
 $(EXEC): $(OBJC) 
 	$(NVCC) $(OBJC) -o $(EXEC)  $(LD_FLAGS)
+
+$(EXEC2): $(OBJC2) 
+	$(NVCC) $(OBJC2) -o $(EXEC2)  $(LD_FLAGS)
 
 clean:
 	rm -rf *.o *.exe sortida.bmp Quantization.*

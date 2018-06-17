@@ -10,14 +10,18 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 # Cambiar el shell
 #$ -S /bin/bash
 
-IMAGE = "subaru.bmp"
+#setenv IMAGE "subaru.bmp"
 
-NITERATIONS = 10
-SEED = 99
-NCOLORS = 10 # max 12 (shared memory is 48k)
+#setenv NITERATIONS 10
+#setenv SEED 99
+#setenv NCOLORS 10 # max 12 (shared memory is 48k)
 
-./cuda-quantization.exe IMAGE NITERATIONS SEED NCOLORS
-./quantization.exe IMAGE NITERATIONS SEED NCOLORS
+#./cuda-quantization.exe ${IMAGE} ${NITERATIONS} ${SEED} ${NCOLORS}
+#./cuda-quantization.exe ${IMAGE} ${NITERATIONS} ${SEED} ${NCOLORS}
+
+./quantization.exe subaru.bmp 10 99 12
+./cuda-quantization.exe subaru.bmp 10 99 12
+./cuda-quantization_v2.exe subaru.bmp 10 99 12
 
 #nvprof --print-gpu-trace --unified-memory-profiling off ./cuda-quantization.exe subaru.bmp 10 80 10
 
