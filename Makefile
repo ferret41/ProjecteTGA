@@ -10,10 +10,13 @@ OBJC        = cuda-quantization.o bmp.o
 EXEC2        = cuda-quantization_v2.exe
 OBJC2        = cuda-quantization_v2.o bmp.o
 
+EXEC3        = cuda-quantization_v3.exe
+OBJC3        = cuda-quantization_v3.o bmp.o
+
 EXE         = quantization.exe
 OBJ         = quantization.o bmp.o
 
-default: $(EXEC) $(EXEC2) $(EXE)
+default: $(EXEC) $(EXEC2) $(EXEC3) $(EXE)
 
 quantization: quantization.c
 	gcc -o quantization.exe quantization.c bmp.c bmp.h -Wall
@@ -29,6 +32,9 @@ cuda-quantization.o: cuda-quantization.cu
 	
 cuda-quantization_v2.o: cuda-quantization_v2.cu
 	$(NVCC) -c cuda-quantization_v2.cu $(NVCC_FLAGS)
+	
+cuda-quantization_v3.o: cuda-quantization_v3.cu
+	$(NVCC) -c cuda-quantization_v3.cu $(NVCC_FLAGS)
 
 $(EXE): $(OBJ)
 	gcc $(OBJ) -o $(EXE)
@@ -38,6 +44,9 @@ $(EXEC): $(OBJC)
 
 $(EXEC2): $(OBJC2) 
 	$(NVCC) $(OBJC2) -o $(EXEC2)  $(LD_FLAGS)
+	
+$(EXEC3): $(OBJC3) 
+	$(NVCC) $(OBJC3) -o $(EXEC3)  $(LD_FLAGS)
 
 clean:
 	rm -rf *.o *.exe sortida.bmp Quantization.*
