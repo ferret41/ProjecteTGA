@@ -150,11 +150,10 @@ __global__ void matrix_reduction_color(Color new_means[], int assigns[], unsigne
     
     //reduccio
     unsigned int s;
-    for(s=1; s < blockDim.x; s *= 2) { 
-        int index = 2 * s * tid;
-        if (index < blockDim.x) {
+    for(s=blockDim.x/2; s>0; s>>=1) { 
+        if (tid < s) {
             for (int j = 0; j < N_colors; ++j) {
-                shared[index*N_colors + j] += shared[(index + s)*N_colors + j];
+                shared[tid*N_colors + j] += shared[(tid + s)*N_colors + j];
             }
         }
         __syncthreads(); 
@@ -189,11 +188,10 @@ __global__ void matrix_reduction_color_2(Color new_means_2[], Color new_means[],
     
     //reduccio
     unsigned int s;
-    for(s=1; s < blockDim.x; s *= 2) { 
-        int index = 2 * s * tid;
-        if (index < blockDim.x) {
+    for(s=blockDim.x/2; s>0; s>>=1) { 
+        if (tid < s) {
             for (int j = 0; j < N_colors; ++j) {
-                shared[index*N_colors + j] += shared[(index + s)*N_colors + j];
+                shared[tid*N_colors + j] += shared[(tid + s)*N_colors + j];
             }
         }
         __syncthreads(); 
@@ -226,16 +224,13 @@ __global__ void matrix_reduction_count(int counts[], int assigns[], unsigned cha
             shared[tid*N_colors + j] = 0;
         }
     }
-    
     __syncthreads();
     
-    //reduccio
     unsigned int s;
-    for(s=1; s < blockDim.x; s *= 2) { 
-        int index = 2 * s * tid;
-        if (index < blockDim.x) {
+    for(s=blockDim.x/2; s>0; s>>=1) { 
+        if (tid < s) {
             for (int j = 0; j < N_colors; ++j) {
-                shared[index*N_colors + j] += shared[(index + s)*N_colors + j];
+                shared[tid*N_colors + j] += shared[(tid + s)*N_colors + j];
             }
         }
         __syncthreads(); 
@@ -265,11 +260,10 @@ __global__ void matrix_reduction_count_2(int counts_2[], int counts[], int Size_
     
     //reduccio
     unsigned int s;
-    for(s=1; s < blockDim.x; s *= 2) { 
-        int index = 2 * s * tid;
-        if (index < blockDim.x) {
+    for(s=blockDim.x/2; s>0; s>>=1) { 
+        if (tid < s) {
             for (int j = 0; j < N_colors; ++j) {
-                shared[index*N_colors + j] += shared[(index + s)*N_colors + j];
+                shared[tid*N_colors + j] += shared[(tid + s)*N_colors + j];
             }
         }
         __syncthreads(); 
