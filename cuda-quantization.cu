@@ -471,6 +471,7 @@ int main(int c, char *v[])
     
     //save image
     SaveBMP("sortida.bmp", &infoHeader, im_host);
+	
     DisplayInfo("sortida.bmp", &infoHeader);
     
     int bytes_read_written = 2 * infoHeader.imgsize* sizeof(unsigned char) + //leer imagen y copiarla
@@ -485,8 +486,7 @@ int main(int c, char *v[])
     printf("Image Size: %d\n", Size);
     printf("nThreads: %d\n", nThreads);
     printf("nBlocks: %d\n", nBlocks);
-    printf("Tiempo Total %4.6f ms\n", elapsedTime);
-    printf("Ancho de Banda %4.3f GB/s\n", (bytes_read_written) / (1000000 * elapsedTime));
+    printf("Tiempo Total Versio cuda inicial = %4.6f ms\n", elapsedTime);
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);    
