@@ -177,7 +177,8 @@ int main(int c, char *v[])
     float t2=GetTime();
     
     float SeqTime = (t2-t1);
-    printf("Tiempo Total SEQUENCIAL %4.6f ms\n", SeqTime);
+	
+    printf("Tiempo Total Version SEQUENCIAL %4.6f ms\n", SeqTime);
     
     
     ///display means final
