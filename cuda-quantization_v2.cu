@@ -493,6 +493,8 @@ int main(int c, char *v[])
         matrix_reduction_color<<<dimGrid, dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 1);
         matrix_reduction_color<<<dimGrid, dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 0);
         
+	cudaDeviceSynchronize();
+
         //volmemos a hacer otra reduccion
         matrix_reduction_count_2<<<nBlocks/nThreads, dimBlock, shared_memory_size>>>(counts_2, counts, Size_row, Size, N_colors);
         matrix_reduction_color_2<<<nBlocks/nThreads, dimBlock, shared_memory_size>>>(new_means_2, new_means, Size_row, Size, N_colors, 2);
@@ -556,6 +558,7 @@ int main(int c, char *v[])
     
     //save image
     SaveBMP("sortida.bmp", &infoHeader, im_host);
+	
     DisplayInfo("sortida.bmp", &infoHeader);
     
     int bytes_read_written = 2 * infoHeader.imgsize* sizeof(unsigned char) + //leer imagen y copiarla
@@ -570,8 +573,7 @@ int main(int c, char *v[])
     printf("Image Size: %d\n", Size);
     printf("nThreads: %d\n", nThreads);
     printf("nBlocks: %d\n", nBlocks);
-    printf("Tiempo Total %4.6f ms\n", elapsedTime);
-    printf("Ancho de Banda %4.3f GB/s\n", (bytes_read_written) / (1000000 * elapsedTime));
+    printf("Tiempo Total Versio 2 = %4.6f ms\n", elapsedTime);
 
     cudaEventDestroy(start);
     cudaEventDestroy(stop);    
