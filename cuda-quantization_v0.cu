@@ -399,53 +399,9 @@ int main(int c, char *v[])
         cudaMemset (counts, 0, nBlocks * sizeof (int) * N_colors);
         cudaMemset (new_means, 0, nBlocks * sizeof (Color) * N_colors);
         
-        //for each pixel find the best mean. 
-/*
-        find_best_mean_par<<<dimGrid, dimBlock>>>(means_device, assigns, im_device, Size, N_colors, Size_row);
-        
-        cudaDeviceSynchronize();
-        
-        
-        //Sum up and count points for each cluster.
-        sum_up_and_count_points_par<<<dimGrid, dimBlock>>>(new_means, assigns, im_device, counts, Size_row, Size, N_colors, s_counts, s_new_means);
-        cudaDeviceSynchronize();
-        
-        
-        
-        matrix_reduction_count<<<dimGrid, dimBlock, shared_memory_size>>>(counts, assigns, im_device, Size_row, Size, N_colors);
-        matrix_reduction_color<<<dimGrid, dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 2);
-        matrix_reduction_color<<<dimGrid, dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 1);
-        matrix_reduction_color<<<dimGrid, dimBlock, shared_memory_size>>>(new_means, assigns, im_device, Size_row, Size, N_colors, 0);
-        
-        cudaDeviceSynchronize();
-        
-        cudaMemcpy(means_host_red, new_means, nBlocks * N_colors * sizeof(Color), cudaMemcpyDeviceToHost);
-        cudaMemcpy(counts_host_red, counts, nBlocks * N_colors * sizeof(int), cudaMemcpyDeviceToHost);
-        
-        memset(counts_host, 0, sizeof (int) * N_colors);
-        memset(means_host, 0, sizeof (Color) * N_colors);
-        
-        int i, j;
-        for (i = 0; i < nBlocks; ++i) {
-            for (j = 0; j < N_colors; ++j) {
-                counts_host[j] += counts_host_red[i*N_colors + j];
-                means_host[j].r += means_host_red[i*N_colors + j].r;
-                means_host[j].g += means_host_red[i*N_colors + j].g;
-                means_host[j].b += means_host_red[i*N_colors + j].b;
-            }
-        }
-        
-        cudaMemcpy(new_means, means_host, N_colors * sizeof(Color), cudaMemcpyHostToDevice);
-        cudaMemcpy(counts, counts_host, N_colors * sizeof(int), cudaMemcpyHostToDevice);
-        
-        
-        */
-		findandsum<<<dimGrid, dimBlock>>>(means_device,new_means, assigns, im_device, counts, Size_row, Size, N_colors);
-		cudaDeviceSynchronize();
-        
-        
-        
-    
+        //for each pixel find the best mean and sum up. 
+	findandsum<<<dimGrid, dimBlock>>>(means_device,new_means, assigns, im_device, counts, Size_row, Size, N_colors);
+	cudaDeviceSynchronize();
         
         //Divide sums by counts to get new centroids.
         divide_sums_by_counts_par<<<dimGridMeans, dimBlock>>>(means_device, N_colors, new_means, counts);
